@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        .loading {
+            text-align: center;
+            padding: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 id="share-entity-name" class="text-center">Loading...</h1>
+        <div id="loading" class="loading">Loading data, please wait...</div>
+        <div id="content" class="d-none">
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <h2 class="text-success">Maximum Shares</h2>
+                    <p><strong>Value:</strong> <span id="share-max-value">-</span></p>
+                    <p><strong>Fiscal Year:</strong> <span id="share-max-fy">-</span></p>
+                </div>
+                <div class="col-md-6">
+                    <h2 class="text-danger">Minimum Shares</h2>
+                    <p><strong>Value:</strong> <span id="share-min-value">-</span></p>
+                    <p><strong>Fiscal Year:</strong> <span id="share-min-fy">-</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        async function fetchData(cik) {
+            const url = `https://data.sec.gov/api/xbrl/companyconcept/${cik}/dei/EntityCommonStockSharesOutstanding.json`;
+            const response = await fetch(url, {
+                headers: { 'User-Agent': 'MyAppName/1.0 (example@domain.com)' }
+            });
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        }
+
+        function updateUI(data) {
+            const entityName = data.entityName;
+            const shares = data.units.shares.filter(entry => entry.fy > '2020' && !isNaN(entry.val));
+
+            let max = { val: Number.MIN_VALUE, fy: '' };
+            let min = { val: Number.MAX_VALUE, fy: '' };
+
+            shares.forEach(entry => {
+                if (entry.val > max.val) {
+                    max.val = entry.val;
+                    max.fy = entry.fy;
+                }
+                if (entry.val < min.val) {
+                    min.val = entry.val;
+                    min.fy = entry.fy;
+                }
+            });
+
+            document.title = entityName;
+            document.getElementById('share-entity-name').textContent = entityName;
+            document.getElementById('share-max-value').textContent = max.val;
+            document.getElementById('share-max-fy').textContent = max.fy;
+            document.getElementById('share-min-value').textContent = min.val;
+            document.getElementById('share-min-fy').textContent = min.fy;
+            document.getElementById('loading').classList.add('d-none');
+            document.getElementById('content').classList.remove('d-none');
+        }
+
+        function handleError(error) {
+            console.error('Error fetching data:', error);
+            document.getElementById('loading').textContent = 'Failed to load data. Please try again later.';
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const cik = urlParams.get('CIK') || 'CIK0001170010'; // Default to CarMax CIK
+            try {
+                const data = await fetchData(cik);
+                updateUI(data);
+            } catch (error) {
+                handleError(error);
+            }
+        });
+    </script>
+</body>
+</html>
